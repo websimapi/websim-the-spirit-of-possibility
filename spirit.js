@@ -12,7 +12,7 @@ export class Spirit {
         this.targetX = random(0, canvasWidth);
         this.targetY = random(0, canvasHeight);
         this.speed = random(0.3, 0.8);
-        this.color = `hsla(60, 100%, 80%, 0.1)"; // A faint yellow/golden color
+        this.color = `hsla(60, 100%, 80%, 0.1)`; // A faint yellow/golden color
     }
 
     update() {

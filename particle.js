@@ -65,19 +65,29 @@ export class Particle {
         }
     }
     
-    reset() {
+    reset(sceneProperties) {
         this.x = Math.random() * this.ctx.canvas.width;
         this.y = Math.random() * this.ctx.canvas.height;
         this.vx = random(-0.25, 0.25);
         this.vy = random(-0.25, 0.25);
         this.life = 0;
         this.maxLife = random(200, 500);
-        this.color = `hsl(${random(180, 260)}, 100%, 75%)`;
+        if (sceneProperties) {
+            const hue = random(sceneProperties.hue_min, sceneProperties.hue_max);
+            this.color = `hsl(${hue % 360}, 100%, 75%)`;
+        } else {
+            this.color = `hsl(${random(180, 260)}, 100%, 75%)`;
+        }
         this.size = random(0.5, 2.5);
         this.baseSize = this.size;
     }
 
-    draw() {
+    draw(sceneProperties) {
+        // Recalculate color if scene properties are available
+        if (sceneProperties && this.life % 60 === 0) { // Update color periodically
+            const hue = random(sceneProperties.hue_min, sceneProperties.hue_max);
+            this.color = `hsl(${hue % 360}, 100%, 75%)`;
+        }
         this.ctx.beginPath();
         this.ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         this.ctx.fillStyle = this.color;
@@ -86,7 +96,7 @@ export class Particle {
         this.ctx.globalAlpha = 1;
     }
 
-    drawConnection(otherParticle) {
+    drawConnection(otherParticle, sceneProperties) {
         const dist = Math.hypot(this.x - otherParticle.x, this.y - otherParticle.y);
         if (dist < 80) {
             this.ctx.beginPath();
@@ -94,10 +104,10 @@ export class Particle {
             this.ctx.lineTo(otherParticle.x, otherParticle.y);
             this.ctx.strokeStyle = this.color;
             this.ctx.lineWidth = 0.2;
-            this.ctx.globalAlpha = 1 - (dist / 80);
+            const opacity = (1 - (dist / 80)) * sceneProperties.particle_connection_opacity;
+            this.ctx.globalAlpha = Math.max(0, opacity);
             this.ctx.stroke();
             this.ctx.globalAlpha = 1;
         }
     }
 }
-

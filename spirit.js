@@ -35,11 +35,12 @@ export class Spirit {
         this.y += this.vy;
     }
 
-    draw(ctx) {
+    draw(ctx, sceneProperties) {
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
-        gradient.addColorStop(0, 'rgba(255, 255, 200, 0.1)');
+        const intensity = sceneProperties ? sceneProperties.spirit_intensity : 0.1;
+        gradient.addColorStop(0, `rgba(255, 255, 200, ${intensity})`);
         gradient.addColorStop(1, 'rgba(255, 255, 200, 0)');
         ctx.fillStyle = gradient;
         ctx.fill();

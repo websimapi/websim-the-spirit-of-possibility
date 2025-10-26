@@ -3,6 +3,10 @@ import { Particle } from './particle.js';
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const instructionsEl = document.getElementById('instructions');
+const chatContainer = document.getElementById('chat-container');
+const chatLog = document.getElementById('chat-log');
+const chatForm = document.getElementById('chat-form');
+const chatInput = document.getElementById('chat-input');
 let particles = [];
 let audioContext;
 let oscillator;
@@ -14,6 +18,11 @@ const mouse = {
     radius: 150,
     active: false,
 };
+
+let conversationHistory = [{
+    role: "system",
+    content: "You are the Spirit of Possibility. You speak in short, poetic, and encouraging phrases about potential, creativity, and the future. Your tone is ethereal and mysterious, using metaphors related to stars, cosmos, and light. You never reveal that you are an AI. Keep responses to one or two sentences."
+}];
 
 function setupAudio() {
     if (audioContext) return;
@@ -46,6 +55,84 @@ function setupAudio() {
     gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 3);
 }
 
+function playSound(buffer, playbackRate = 1, volume = 0.3) {
+    if (!audioContext) return;
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = playbackRate;
+    const gain = audioContext.createGain();
+    gain.gain.value = volume;
+    source.connect(gain).connect(audioContext.destination);
+    source.start(0);
+}
+
+let aiResponseSoundBuffer;
+async function loadSounds() {
+    if(!window.websim) return;
+    const ttsResponse = await websim.textToSpeech({ text: " ", voice: "en-male"});
+    const response = await fetch(ttsResponse.url);
+    const arrayBuffer = await response.arrayBuffer();
+    aiResponseSoundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+}
+
+
+function addMessage(role, content, thinking = false) {
+    const messageEl = document.createElement('div');
+    messageEl.classList.add('chat-message', `${role}-message`);
+    if (thinking) {
+        messageEl.classList.add('thinking');
+        messageEl.textContent = '...';
+    } else {
+        messageEl.textContent = content;
+    }
+    chatLog.prepend(messageEl);
+
+    // Clean up old messages that have faded out
+    const oldMessages = chatLog.querySelectorAll('.chat-message');
+    if (oldMessages.length > 15) { // Keep DOM from getting too crowded
+        for (let i = 15; i < oldMessages.length; i++) {
+            oldMessages[i].remove();
+        }
+    }
+    return messageEl;
+}
+
+
+async function handleChatSubmit(e) {
+    e.preventDefault();
+    const userInput = chatInput.value.trim();
+    if (!userInput) return;
+
+    addMessage('user', userInput);
+    conversationHistory.push({ role: 'user', content: userInput });
+
+    chatInput.value = '';
+    chatInput.disabled = true;
+
+    const thinkingEl = addMessage('ai', '', true);
+
+    try {
+        const completion = await websim.chat.completions.create({
+            messages: conversationHistory.slice(-10), // Keep context manageable
+        });
+        const aiResponse = completion.content;
+        
+        thinkingEl.remove();
+        addMessage('ai', aiResponse);
+        if (aiResponseSoundBuffer) playSound(aiResponseSoundBuffer, 1.2, 0.2);
+        conversationHistory.push(completion);
+
+    } catch (error) {
+        console.error("AI Error:", error);
+        thinkingEl.remove();
+        addMessage('ai', "The ether is quiet right now...");
+    } finally {
+        chatInput.disabled = false;
+        chatInput.focus();
+    }
+}
+
+
 function init() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -75,8 +162,12 @@ function animate() {
 function handleInteractionStart(e) {
     if (!audioContext) {
         setupAudio();
+        loadSounds();
         instructionsEl.style.opacity = '0';
         document.getElementById('title').style.opacity = '0';
+        chatContainer.classList.add('visible');
+        chatInput.disabled = false;
+        setTimeout(() => chatInput.focus(), 1000); // Focus after transition
     }
     mouse.active = true;
     updateMousePosition(e);
@@ -96,22 +187,29 @@ function updateMousePosition(e) {
     }
 }
 
-window.addEventListener('mousedown', handleInteractionStart);
-window.addEventListener('touchstart', handleInteractionStart, { passive: true });
-
-window.addEventListener('mouseup', handleInteractionEnd);
-window.addEventListener('touchend', handleInteractionEnd, { passive: true });
-
 window.addEventListener('mousemove', (e) => {
     if (mouse.active) {
         updateMousePosition(e);
     }
 });
-window.addEventListener('touchmove', (e) => {
+window.addEventListener('touchmousemove', (e) => {
     if (mouse.active) {
         updateMousePosition(e);
     }
 }, { passive: true });
+
+chatForm.addEventListener('submit', handleChatSubmit);
+
+window.addEventListener('mousemove', handleInteractionStart);
+window.addEventListener('mouseup', handleInteractionEnd);
+window.addEventListener('touchstart', handleInteractionStart, { passive: true });
+window.addEventListener('touchend', handleInteractionEnd);
+
+
+window.addEventListener('mousemove', handleInteractionStart);
+window.addEventListener('mouseup', handleInteractionEnd);
+window.addEventListener('touchstart', handleInteractionStart, { passive: true });
+window.addEventListener('touchend', handleInteractionEnd);
 
 
 window.addEventListener('resize', () => {
